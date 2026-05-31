@@ -2,7 +2,7 @@
  * URL 控制器 - 处理 URL 相关的 HTTP 请求和响应
  */
 import { Request, Response } from "express";
-import axios from "axios";
+import axios, { AxiosRequestConfig } from "axios";
 import * as cheerio from "cheerio";
 import { URL } from "url";
 import { R } from "../utils/response.util";
@@ -113,6 +113,70 @@ export class UrlController {
       res
         .status(500)
         .json(R.fail("获取网站信息失败" + (error as Error).message));
+    }
+  };
+
+  /**
+   * 通用 API 代理方法 - 解决 CORS 问题
+   * 接收前端请求，转发到目标 API，然后返回响应
+   * @param req Express 请求对象
+   * @param res Express 响应对象
+   */
+  static proxyRequest = async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
+    try {
+      const { url, method = "GET", headers = {}, body = null } = req.body;
+      // 验证 URL 参数
+      if (!url) {
+        res.status(400).json(R.badRequest("缺少必需参数: url"));
+        return;
+      }
+
+      // 构建 axios 请求配置
+      const axiosConfig: AxiosRequestConfig = {
+        url,
+        method: method.toUpperCase(),
+        headers,
+        timeout: 30000, // 30秒超时
+      };
+
+      // 只有在 POST/PUT/PATCH 方法时才添加 body
+      if (body && ["POST", "PUT", "PATCH"].includes(axiosConfig.method || "GET")) {
+        axiosConfig.data = body;
+      }
+
+      // 发送请求
+      const response = await axios(axiosConfig);
+
+      // 构建返回结果
+      const result = {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+        data: response.data,
+      };
+
+      res.status(200).json(result);
+    } catch (error) {
+      console.error("代理请求失败:", error);
+
+      // 处理 axios 错误
+      if (axios.isAxiosError(error)) {
+        const errorResult = {
+          status: error.response?.status || 500,
+          statusText: error.response?.statusText || error.message,
+          headers: error.response?.headers || {},
+          data: error.response?.data || null,
+          error: true,
+          message: error.message,
+        };
+        res.status(200).json(errorResult); // 返回 200 状态码，让前端处理错误信息
+      } else {
+        res.status(500).json(R.fail("代理请求失败: " + (error as Error).message));
+      }
+      
     }
   };
 }

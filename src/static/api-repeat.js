@@ -24,6 +24,7 @@ const callIntervalInput = document.getElementById("callInterval");
 const enableTimedExecutionCheckbox = document.getElementById("enableTimedExecution");
 const timedDelayGroup = document.getElementById("timedDelayGroup");
 const timedDelayInput = document.getElementById("timedDelay");
+const enableProxyCheckbox = document.getElementById("enableProxy");
 
 // 运行配置（默认值）
 const defaultConfig = {
@@ -31,6 +32,7 @@ const defaultConfig = {
   callInterval: 0,
   enableTimedExecution: false,
   timedDelay: "",
+  enableProxy: false,
 };
 
 // 当前配置
@@ -59,58 +61,129 @@ function syncScroll() {
 
 /**
  * 解析用户输入的fetch代码，提取URL和配置参数
- * 使用正则表达式安全地解析代码字符串，避免动态执行
+ * 使用正则表达式提取URL，然后用JSON方式解析第二个参数
  * @param {string} code - 用户输入的fetch代码
  * @returns {Object} 解析后的fetch配置对象 {url, options}
  */
 function parseFetchCode(code) {
-  // 提取fetch函数调用的第一个参数（URL）
-  const urlMatch = code.match(/fetch\(\s*['"`]([^'"`]+)['"`]/);
-  const url = urlMatch ? urlMatch[1] : "";
+  //先替换所有的单引号为双引号
+  code = code.replace(/'/g, '"');
 
-  // 初始化配置对象
-  const options = {
+  // 提取fetch函数调用的第一个参数（URL）
+  const urlMatch = code.match(/fetch\(\s*['"`]\s*([^'"`]+?)\s*['"`]/);
+  const url = urlMatch ? urlMatch[1].trim() : "";
+
+  // 初始化默认配置对象
+  const defaultOptions = {
     method: "GET",
     headers: {},
     body: null,
   };
 
-  // 提取HTTP方法（支持有引号和无引号两种写法）
-  const methodMatch = code.match(/['"`]?method['"`]?\s*:\s*['"`]?(\w+)['"`]?/);
-  if (methodMatch) {
-    options.method = methodMatch[1].toUpperCase();
+  // 如果未提取到URL，返回默认配置
+  if (!url) {
+    return { url, options: defaultOptions };
   }
 
-  // 提取请求头信息
-  const headersMatch = code.match(/['"`]?headers['"`]?\s*:\s*\{([^}]+)\}/s);
-  if (headersMatch) {
-    const headersContent = headersMatch[1];
-    // 匹配所有键值对（支持有引号和无引号的键）
-    const headerPairs = headersContent.matchAll(
-      /['"`]?([^'"`,\s]+)['"`]?\s*:\s*['"`]([^'"`]*)['"`]/g,
-    );
-    for (const pair of headerPairs) {
-      options.headers[pair[1]] = pair[2];
+  // 提取fetch的第二个参数（配置对象）
+  // 匹配第一个逗号后的所有内容，尝试提取大括号包裹的JSON对象
+  const firstCommaIndex = code.indexOf(',', urlMatch.index + urlMatch[0].length);
+  
+  if (firstCommaIndex === -1) {
+    // 没有第二个参数，返回默认配置
+    return { url, options: defaultOptions };
+  }
+
+  // 从第一个逗号后开始查找配置对象
+  const afterComma = code.substring(firstCommaIndex + 1);
+  
+  // 查找配置对象的开始大括号
+  const braceStartIndex = afterComma.indexOf('{');
+  if (braceStartIndex === -1) {
+    return { url, options: defaultOptions };
+  }
+
+  // 查找匹配的结束大括号（处理嵌套大括号）
+  let braceCount = 0;
+  let braceEndIndex = -1;
+  let inString = false;
+  let stringChar = '';
+  let escapeNext = false;
+
+  for (let i = braceStartIndex; i < afterComma.length; i++) {
+    const char = afterComma[i];
+
+    // 处理转义字符
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
     }
-  }
 
-  // 提取请求体
-  const bodyMatch = code.match(/['"`]?body['"`]?\s*:\s*['"`]([^'"`]*(?:\\.[^'"`]*)*)['"`]/);
-  if (bodyMatch) {
-    try {
-      // 尝试解析JSON格式的body
-      options.body = JSON.parse(bodyMatch[1].replace(/\\"/g, '"'));
-      // 如果是对象，重新序列化为字符串
-      if (typeof options.body === "object") {
-        options.body = JSON.stringify(options.body);
+    // 处理字符串内的字符
+    if (inString) {
+      if (char === '\\') {
+        escapeNext = true;
+      } else if (char === stringChar) {
+        inString = false;
       }
-    } catch (e) {
-      // 如果不是JSON，直接使用原始字符串
-      options.body = bodyMatch[1].replace(/\\"/g, '"');
+      continue;
+    }
+
+    // 处理字符串开始
+    if (char === '"' || char === "'" || char === '`') {
+      inString = true;
+      stringChar = char;
+      continue;
+    }
+
+    // 处理大括号计数
+    if (char === '{') {
+      braceCount++;
+    } else if (char === '}') {
+      braceCount--;
+      if (braceCount === 0) {
+        braceEndIndex = i;
+        break;
+      }
     }
   }
 
-  return { url, options };
+  // 如果未找到匹配的结束大括号，返回默认配置
+  if (braceEndIndex === -1) {
+    console.error("未找到匹配的配置对象结束位置");
+    return { url, options: defaultOptions };
+  }
+
+  // 提取配置对象的JSON字符串
+  const optionsJsonStr = afterComma.substring(braceStartIndex, braceEndIndex + 1);
+
+  // 尝试将配置对象解析为JSON
+  try {
+    const options = JSON.parse(optionsJsonStr);
+    
+    // 确保method字段存在
+    if (!options.method) {
+      options.method = "GET";
+    } else {
+      options.method = options.method.toUpperCase();
+    }
+
+    // 确保headers字段存在
+    if (!options.headers) {
+      options.headers = {};
+    }
+
+    // body字段保持原样（可能是JSON字符串或null）
+    if (options.body === undefined) {
+      options.body = null;
+    }
+
+    return { url, options };
+  } catch (error) {
+    console.error("解析配置对象JSON失败:", error);
+    console.error("原始JSON字符串:", optionsJsonStr);
+    return { url, options: defaultOptions };
+  }
 }
 
 /**
@@ -284,6 +357,7 @@ function openConfigModal() {
   callIntervalInput.value = currentConfig.callInterval;
   enableTimedExecutionCheckbox.checked = currentConfig.enableTimedExecution;
   timedDelayInput.value = currentConfig.timedDelay;
+  enableProxyCheckbox.checked = currentConfig.enableProxy;
   
   // 根据定时执行状态显示/隐藏定时时间输入框
   toggleTimedDelayGroup(currentConfig.enableTimedExecution);
@@ -305,6 +379,7 @@ function confirmConfig() {
   const interval = parseInt(callIntervalInput.value, 10);
   const enableTimed = enableTimedExecutionCheckbox.checked;
   const timedDelay = timedDelayInput.value;
+  const enableProxy = enableProxyCheckbox.checked;
 
   // 验证输入值
   if (isNaN(count) || count < 1 || count > 1000) {
@@ -332,6 +407,7 @@ function confirmConfig() {
   currentConfig.callInterval = interval;
   currentConfig.enableTimedExecution = enableTimed;
   currentConfig.timedDelay = timedDelay;
+  currentConfig.enableProxy = enableProxy;
 
   // 关闭弹窗
   closeConfigModal();
@@ -354,17 +430,71 @@ function resetConfig() {
   callIntervalInput.value = defaultConfig.callInterval;
   enableTimedExecutionCheckbox.checked = defaultConfig.enableTimedExecution;
   timedDelayInput.value = defaultConfig.timedDelay;
+  enableProxyCheckbox.checked = defaultConfig.enableProxy;
   resetInputBorders();
   toggleTimedDelayGroup(false);
+}
+
+/**
+ * 通过代理执行请求
+ * @param {string} url - 请求URL
+ * @param {Object} options - 请求配置
+ * @returns {Promise} 请求结果
+ */
+function executeRequestWithProxy(url, options) {
+  const startTime = performance.now();
+  
+  // 构建代理请求体
+  const proxyBody = {
+    url: url,
+    method: options.method,
+    headers: options.headers,
+    body: options.body,
+  };
+
+  // 通过本地代理发送请求
+  return fetch('/api/url/proxy', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(proxyBody),
+  })
+  .then(response => response.json())
+  .then(proxyResponse => {
+    const endTime = performance.now();
+    
+    // 转换代理响应为统一格式
+    return {
+      status: proxyResponse.status || proxyResponse.statusCode || 500,
+      statusText: proxyResponse.statusText || '',
+      ok: !proxyResponse.error && proxyResponse.status >= 200 && proxyResponse.status < 300,
+      redirected: false,
+      type: 'proxy',
+      url: url,
+      headers: proxyResponse.headers || {},
+      data: proxyResponse.data,
+      timing: {
+        duration: Math.round(endTime - startTime),
+        unit: 'ms',
+      },
+      _viaProxy: true, // 标记通过代理请求
+    };
+  });
 }
 
 /**
  * 执行单次请求
  * @param {string} url - 请求URL
  * @param {Object} options - 请求配置
+ * @param {boolean} useProxy - 是否使用代理
  * @returns {Promise} 请求结果
  */
-function executeSingleRequest(url, options) {
+function executeSingleRequest(url, options, useProxy = false) {
+  // 如果启用代理，使用代理模式
+  if (useProxy) {
+    return executeRequestWithProxy(url, options);
+  }
   // 使用原生fetch API发送请求（完全符合CSP）
   const fetchOptions = {
     method: options.method,
@@ -440,6 +570,11 @@ function appendConfigInfo(config) {
   if (config.enableTimedExecution) {
     configHtml += `<span style="margin-left: 12px; color: #4b5563;">定时执行: ${config.timedDelay}</span>`;
   }
+  
+  // 添加代理模式信息
+  if (config.enableProxy) {
+    configHtml += `<span style="margin-left: 12px; color: #7c3aed; font-weight: 500;">🔄 代理模式: 已启用</span>`;
+  }
 
   configHtml += `</div>`;
   appendHtmlToResult(configHtml);
@@ -468,7 +603,6 @@ async function runCode() {
 
   // 使用安全的代码解析器提取fetch参数
   const { url, options } = parseFetchCode(code);
-
   // 验证是否成功提取到URL
   if (!url) {
     const errorData = {
@@ -480,7 +614,7 @@ async function runCode() {
     return;
   }
 
-  const { callCount, callInterval, enableTimedExecution, timedDelay } = currentConfig;
+  const { callCount, callInterval, enableTimedExecution, timedDelay, enableProxy } = currentConfig;
   
   // 输出配置信息
   appendConfigInfo(currentConfig);
@@ -490,7 +624,7 @@ async function runCode() {
     // 如果只需要执行一次，直接执行
     if (callCount === 1) {
       try {
-        const result = await executeSingleRequest(url, options);
+        const result = await executeSingleRequest(url, options, enableProxy);
         appendResult(result);
         console.log("✅ Fetch请求执行成功:", result);
       } catch (error) {
@@ -502,7 +636,6 @@ async function runCode() {
 
     // 多次执行 - 并行发起，按间隔调度
     let currentIndex = 0;
-    console.log(new Date().toISOString());
 
     function executeNext() {
       if (currentIndex >= callCount) {
@@ -511,7 +644,7 @@ async function runCode() {
 
       const currentCall = currentIndex + 1;
       console.log(`✅ 第 ${currentCall}/${callCount} 次请求:`);
-      executeSingleRequest(url, options)
+      executeSingleRequest(url, options, enableProxy)
         .then((result) => {
           appendResult(result);
         })

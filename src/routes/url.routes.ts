@@ -58,4 +58,41 @@ const router = Router();
  */
 router.post('/icon', UrlController.getWebsiteInfo);
 
+/**
+ * @swagger
+ * /api/url/proxy:
+ *   post:
+ *     tags:
+ *       - URL 工具
+ *     summary: API 代理
+ *     description: 通过代理访问外部 API，解决 CORS 问题
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - url
+ *             properties:
+ *               url:
+ *                 type: string
+ *                 description: 目标 API URL
+ *                 example: https://jsonplaceholder.typicode.com/posts/1
+ *               method:
+ *                 type: string
+ *                 description: HTTP 方法
+ *                 example: GET
+ *               headers:
+ *                 type: object
+ *                 description: 请求头
+ *               body:
+ *                 type: string
+ *                 description: 请求体
+ *     responses:
+ *       200:
+ *         description: 成功代理请求
+ */
+router.post('/proxy', UrlController.proxyRequest);
+
 export default router;
