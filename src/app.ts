@@ -5,6 +5,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import swaggerUi from 'swagger-ui-express';
+import path from 'path';
 import swaggerSpec from './config/swagger';
 import { PORT, NODE_ENV } from './config/environment';
 import { router, API_PREFIX } from './routes';
@@ -13,10 +14,27 @@ import { router, API_PREFIX } from './routes';
 const app = express();
 
 // 中间件配置
-app.use(helmet()); // 安全头部
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      connectSrc: ["'self'", "*"],
+      imgSrc: ["'self'", "data:"],
+      fontSrc: ["'self'"],
+      frameSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      formAction: ["'self'"],
+    },
+  },
+})); // 安全头部（配置CSP允许API调试工具连接外部API）
 app.use(cors()); // 跨域资源共享
 app.use(express.json()); // 解析 JSON 请求体
 app.use(express.urlencoded({ extended: true })); // 解析 URL 编码请求体
+
+// 静态文件服务：将 /static 路径映射到 src/static 目录
+app.use('/static', express.static(path.join(__dirname, 'static')));
 
 // Swagger UI 路由（仅在开发环境显示）
 if (NODE_ENV === 'development') {
