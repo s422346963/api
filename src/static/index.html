@@ -1,2 +1,156 @@
-Hello World!
- 
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>API工具导航</title>
+    <style>
+      /* 全局样式重置 */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      /* 页面主体容器 */
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+          "Helvetica Neue", Arial, sans-serif;
+        background-color: #f8fafc;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+
+      /* 主容器样式 */
+      .container {
+        max-width: 700px;
+        width: 100%;
+        background-color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+
+      /* 页面头部 */
+      .page-header {
+        padding: 32px;
+        background-color: #ffffff;
+        color: #1e293b;
+        text-align: center;
+        border-bottom: 1px solid #e2e8f0;
+      }
+
+      .page-title {
+        font-size: 28px;
+        font-weight: 700;
+        margin: 0 0 8px;
+      }
+
+      .page-subtitle {
+        font-size: 14px;
+        opacity: 0.9;
+        margin: 0;
+      }
+
+      /* 导航区域 */
+      .nav-section {
+        padding: 32px;
+      }
+
+      .nav-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      /* 导航卡片列表 */
+      .nav-cards {
+        display: grid;
+        gap: 16px;
+      }
+
+      /* 导航卡片样式 */
+      .nav-card {
+        display: flex;
+        align-items: center;
+        padding: 20px;
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        text-decoration: none;
+        transition: all 0.2s ease;
+      }
+
+      .nav-card:hover {
+        border-color: #cbd5e1;
+        background-color: #f8fafc;
+      }
+
+      /* 卡片图标 */
+      .card-icon {
+        font-size: 24px;
+        margin-right: 16px;
+      }
+
+      /* 卡片内容 */
+      .card-content {
+        flex: 1;
+      }
+
+      .card-title {
+        font-size: 15px;
+        font-weight: 500;
+        color: #1e293b;
+        margin: 0 0 4px;
+      }
+
+      .card-description {
+        font-size: 13px;
+        color: #64748b;
+        margin: 0;
+      }
+
+      /* 卡片箭头 */
+      .card-arrow {
+        font-size: 16px;
+        color: #94a3b8;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 主容器 -->
+    <div class="container">
+      <!-- 页面标题 -->
+      <div class="page-header">
+        <h1 class="page-title">🛠️ API工具集合</h1>
+        <p class="page-subtitle">快速访问和使用各类API工具</p>
+      </div>
+
+      <!-- 导航区域 -->
+      <div class="nav-section">
+        <h2 class="nav-title">📋 可用工具</h2>
+        
+        <!-- 导航卡片列表 -->
+        <div class="nav-cards">
+          <!-- API调试工具卡片 -->
+          <a href="api-repeat.html" class="nav-card">
+            <div class="card-icon">🔧</div>
+            <div class="card-content">
+              <h3 class="card-title">API调试执行工具</h3>
+              <p class="card-description">快速测试和调试您的API请求，支持多次调用和定时执行</p>
+            </div>
+            <div class="card-arrow">→</div>
+          </a>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

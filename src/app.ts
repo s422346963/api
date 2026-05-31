@@ -65,7 +65,8 @@ app.get('/', (req, res) => {
     success: true,
     message: '欢迎使用 TypeScript + Express MVC API',
     version: '1.0.0',
-    documentation: NODE_ENV === 'development' ? '/api-docs' : undefined
+    documentation: NODE_ENV === 'development' ? '/api-docs' : undefined,
+    static: '/static/index.html',
   });
 });
 
