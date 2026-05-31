@@ -420,6 +420,22 @@
               />
               <span class="form-hint">范围：0-60000 毫秒</span>
             </div>
+            <div class="form-group">
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" id="enableTimedExecution" style="width: 18px; height: 18px;" />
+                <span class="form-label" style="margin-bottom: 0;">开启定时执行</span>
+              </label>
+            </div>
+            <div class="form-group" id="timedDelayGroup" style="display: none;">
+              <label class="form-label" for="timedDelay">定时时间</label>
+              <input
+                type="time"
+                class="form-input"
+                id="timedDelay"
+                step="1"
+              />
+              <span class="form-hint">选择定时执行的具体时间</span>
+            </div>
           </div>
           <div class="modal-footer">
             <button class="btn btn-outline-secondary" id="btnResetConfig">

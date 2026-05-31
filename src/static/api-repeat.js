@@ -21,11 +21,16 @@ const btnConfirmConfig = document.getElementById("btnConfirmConfig");
 const btnResetConfig = document.getElementById("btnResetConfig");
 const callCountInput = document.getElementById("callCount");
 const callIntervalInput = document.getElementById("callInterval");
+const enableTimedExecutionCheckbox = document.getElementById("enableTimedExecution");
+const timedDelayGroup = document.getElementById("timedDelayGroup");
+const timedDelayInput = document.getElementById("timedDelay");
 
 // 运行配置（默认值）
 const defaultConfig = {
   callCount: 1,
   callInterval: 0,
+  enableTimedExecution: false,
+  timedDelay: "",
 };
 
 // 当前配置
@@ -169,6 +174,28 @@ function extractResultSummary(data) {
 }
 
 /**
+ * 格式化延时显示
+ * @param {number} seconds - 秒数
+ * @returns {string} 格式化的时间字符串
+ */
+function formatDelay(seconds) {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  
+  let result = '';
+  if (hours > 0) {
+    result += `${hours}小时`;
+  }
+  if (minutes > 0) {
+    result += `${minutes}分钟`;
+  }
+  result += `${secs}秒`;
+  
+  return result;
+}
+
+/**
  * 格式化单行结果显示
  * @param {*} data - 响应数据
  * @returns {string} 单行HTML字符串
@@ -203,26 +230,31 @@ function formatResultLine(data) {
 }
 
 /**
- * 追加单条结果到DOM
- * @param {*} data - 响应数据
+ * 添加HTML内容到结果区域
+ * @param {string} html - 要添加的HTML字符串
  */
-function appendResult(data) {
+function appendHtmlToResult(html) {
   // 移除占位提示
   const placeholder = resultArea.querySelector('.placeholder-text');
   if (placeholder) {
     placeholder.remove();
   }
 
-  // 创建新的结果行
+  // 创建新的元素并添加
   const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = formatResultLine(data);
-  const resultLine = tempDiv.firstElementChild;
-
-  // 追加到结果区域
-  resultArea.appendChild(resultLine);
+  tempDiv.innerHTML = html;
+  resultArea.appendChild(tempDiv.firstElementChild);
 
   // 滚动到底部
   resultArea.scrollTop = resultArea.scrollHeight;
+}
+
+/**
+ * 追加单条结果到DOM
+ * @param {*} data - 响应数据
+ */
+function appendResult(data) {
+  appendHtmlToResult(formatResultLine(data));
 }
 
 
@@ -236,12 +268,25 @@ function clearAll() {
 }
 
 /**
+ * 更新定时时间输入框的显示状态
+ * @param {boolean} show - 是否显示
+ */
+function toggleTimedDelayGroup(show) {
+  timedDelayGroup.style.display = show ? 'block' : 'none';
+}
+
+/**
  * 打开配置弹窗
  */
 function openConfigModal() {
   // 将当前配置值填充到输入框
   callCountInput.value = currentConfig.callCount;
   callIntervalInput.value = currentConfig.callInterval;
+  enableTimedExecutionCheckbox.checked = currentConfig.enableTimedExecution;
+  timedDelayInput.value = currentConfig.timedDelay;
+  
+  // 根据定时执行状态显示/隐藏定时时间输入框
+  toggleTimedDelayGroup(currentConfig.enableTimedExecution);
   configModal.classList.add("active");
 }
 
@@ -258,6 +303,8 @@ function closeConfigModal() {
 function confirmConfig() {
   const count = parseInt(callCountInput.value, 10);
   const interval = parseInt(callIntervalInput.value, 10);
+  const enableTimed = enableTimedExecutionCheckbox.checked;
+  const timedDelay = timedDelayInput.value;
 
   // 验证输入值
   if (isNaN(count) || count < 1 || count > 1000) {
@@ -270,17 +317,33 @@ function confirmConfig() {
     callIntervalInput.style.borderColor = "#dc2626";
     return;
   }
+  // 如果开启了定时执行，验证是否选择了时间
+  if (enableTimed && !timedDelay) {
+    timedDelayInput.focus();
+    timedDelayInput.style.borderColor = "#dc2626";
+    return;
+  }
 
   // 恢复边框颜色
-  callCountInput.style.borderColor = "";
-  callIntervalInput.style.borderColor = "";
+  resetInputBorders();
 
   // 保存配置
   currentConfig.callCount = count;
   currentConfig.callInterval = interval;
+  currentConfig.enableTimedExecution = enableTimed;
+  currentConfig.timedDelay = timedDelay;
 
   // 关闭弹窗
   closeConfigModal();
+}
+
+/**
+ * 重置所有输入框的边框颜色
+ */
+function resetInputBorders() {
+  callCountInput.style.borderColor = "";
+  callIntervalInput.style.borderColor = "";
+  timedDelayInput.style.borderColor = "";
 }
 
 /**
@@ -289,8 +352,10 @@ function confirmConfig() {
 function resetConfig() {
   callCountInput.value = defaultConfig.callCount;
   callIntervalInput.value = defaultConfig.callInterval;
-  callCountInput.style.borderColor = "";
-  callIntervalInput.style.borderColor = "";
+  enableTimedExecutionCheckbox.checked = defaultConfig.enableTimedExecution;
+  timedDelayInput.value = defaultConfig.timedDelay;
+  resetInputBorders();
+  toggleTimedDelayGroup(false);
 }
 
 /**
@@ -363,28 +428,21 @@ function executeSingleRequest(url, options) {
  * @param {Object} config - 配置对象
  */
 function appendConfigInfo(config) {
-  // 移除占位提示
-  const placeholder = resultArea.querySelector('.placeholder-text');
-  if (placeholder) {
-    placeholder.remove();
-  }
-
   // 创建配置信息HTML
-  const configHtml = `
+  let configHtml = `
     <div class="result-line" style="background-color: #f3f4f6; padding: 8px 12px; border-radius: 4px;">
       <span style="font-weight: 600; color: #374151;">【运行配置】</span>
       <span style="margin-left: 12px; color: #4b5563;">调用次数: ${config.callCount}次</span>
       <span style="margin-left: 12px; color: #4b5563;">间隔时间: ${config.callInterval}ms</span>
-    </div>
   `;
 
-  // 添加到结果区域
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = configHtml;
-  resultArea.appendChild(tempDiv.firstElementChild);
+  // 添加定时执行信息
+  if (config.enableTimedExecution) {
+    configHtml += `<span style="margin-left: 12px; color: #4b5563;">定时执行: ${config.timedDelay}</span>`;
+  }
 
-  // 滚动到底部
-  resultArea.scrollTop = resultArea.scrollHeight;
+  configHtml += `</div>`;
+  appendHtmlToResult(configHtml);
 }
 
 /**
@@ -422,58 +480,146 @@ async function runCode() {
     return;
   }
 
-  const { callCount, callInterval } = currentConfig;
+  const { callCount, callInterval, enableTimedExecution, timedDelay } = currentConfig;
   
   // 输出配置信息
   appendConfigInfo(currentConfig);
 
-  // 如果只需要执行一次，直接执行
-  if (callCount === 1) {
-    try {
-      const result = await executeSingleRequest(url, options);
-      appendResult(result);
-      console.log("✅ Fetch请求执行成功:", result);
-    } catch (error) {
-      console.error("❌ Fetch请求执行失败:", error);
-      appendResult(createErrorInfo(error));
-    }
-    return;
-  }
-
-  // 多次执行 - 并行发起，按间隔调度
-  let currentIndex = 0;
-  console.log(new Date().toISOString());
-
-  function executeNext() {
-    if (currentIndex >= callCount) {
+  // 定义实际执行的函数
+  const doExecute = async () => {
+    // 如果只需要执行一次，直接执行
+    if (callCount === 1) {
+      try {
+        const result = await executeSingleRequest(url, options);
+        appendResult(result);
+        console.log("✅ Fetch请求执行成功:", result);
+      } catch (error) {
+        console.error("❌ Fetch请求执行失败:", error);
+        appendResult(createErrorInfo(error));
+      }
       return;
     }
 
-    const currentCall = currentIndex + 1;
-    console.log(`✅ 第 ${currentCall}/${callCount} 次请求:`);
-    executeSingleRequest(url, options)
-      .then((result) => {
-        appendResult(result);
-      })
-      .catch((error) => {
-        console.error(`❌ 第 ${currentCall}/${callCount} 次请求失败:`, error);
-        appendResult(createErrorInfo(error));
-      });
+    // 多次执行 - 并行发起，按间隔调度
+    let currentIndex = 0;
+    console.log(new Date().toISOString());
 
-    currentIndex++;
+    function executeNext() {
+      if (currentIndex >= callCount) {
+        return;
+      }
 
-    // 如果不是最后一次，等待间隔时间后执行下一次
-    if (currentIndex < callCount && callInterval > 0) {
-      setTimeout(executeNext, callInterval);
-    } else if (currentIndex < callCount) {
-      // 间隔为0，立即执行下一次
-      executeNext();
+      const currentCall = currentIndex + 1;
+      console.log(`✅ 第 ${currentCall}/${callCount} 次请求:`);
+      executeSingleRequest(url, options)
+        .then((result) => {
+          appendResult(result);
+        })
+        .catch((error) => {
+          console.error(`❌ 第 ${currentCall}/${callCount} 次请求失败:`, error);
+          appendResult(createErrorInfo(error));
+        });
+
+      currentIndex++;
+
+      // 如果不是最后一次，等待间隔时间后执行下一次
+      if (currentIndex < callCount && callInterval > 0) {
+        setTimeout(executeNext, callInterval);
+      } else if (currentIndex < callCount) {
+        // 间隔为0，立即执行下一次
+        executeNext();
+      }
     }
+
+    // 开始执行
+    executeNext();
+  };
+
+  // 根据配置决定是否定时执行
+  if (enableTimedExecution) {
+    executeWithTimer(timedDelay, doExecute);
+  } else {
+    doExecute();
   }
 
-  // 开始执行
-  executeNext();
+}
 
+/**
+ * 解析时间字符串并计算延时
+ * @param {string} timeStr - 时间字符串 HH:MM:SS
+ * @returns {number} 延时毫秒数
+ */
+function calculateDelayFromTime(timeStr) {
+  const timeParts = timeStr.split(':').map(Number);
+  let hours = 0, minutes = 0, seconds = 0;
+  
+  if (timeParts.length >= 2) {
+    hours = timeParts[0];
+    minutes = timeParts[1];
+    if (timeParts.length >= 3) {
+      seconds = timeParts[2];
+    }
+  }
+  
+  const now = new Date();
+  const targetTime = new Date(now.getTime());
+  targetTime.setHours(hours, minutes, seconds, 0);
+  
+  // 如果目标时间已经过了，设置为明天
+  if (targetTime <= now) {
+    targetTime.setDate(targetTime.getDate() + 1);
+  }
+  
+  return targetTime - now;
+}
+
+/**
+ * 执行定时任务
+ * @param {string} timeStr - 时间字符串
+ * @param {Function} callback - 回调函数
+ */
+function executeWithTimer(timeStr, callback) {
+  const delayMs = calculateDelayFromTime(timeStr);
+  const delaySeconds = delayMs / 1000;
+  
+  // 显示倒计时信息
+  const countdownHtml = `
+    <div class="result-line" style="background-color: #fffbeb; padding: 8px 12px; border-radius: 4px;">
+      <span style="font-weight: 600; color: #d97706;">⏰ 定时执行中</span>
+      <span style="margin-left: 12px; color: #92400e;">将在 <span id="countdown">${formatDelay(delaySeconds)}</span> 后开始执行...</span>
+    </div>
+  `;
+  appendHtmlToResult(countdownHtml);
+  
+  // 获取倒计时元素
+  const countdownEl = resultArea.querySelector('#countdown');
+  let remainingSeconds = delaySeconds;
+  
+  // 倒计时逻辑
+  const countdownInterval = setInterval(() => {
+    remainingSeconds -= 0.1;
+    if (remainingSeconds <= 0) {
+      clearInterval(countdownInterval);
+    } else if (countdownEl) {
+      countdownEl.textContent = formatDelay(remainingSeconds);
+    }
+  }, 100);
+  
+  // 定时执行
+  setTimeout(() => {
+    clearInterval(countdownInterval);
+    // 更新倒计时信息为开始执行
+    if (countdownEl) {
+      const countdownLine = countdownEl.closest('.result-line');
+      if (countdownLine) {
+        countdownLine.innerHTML = `
+          <span style="font-weight: 600; color: #059669;">▶️ 开始执行</span>
+          <span style="margin-left: 12px; color: #047857;">定时时间已到，开始执行请求...</span>
+        `;
+      }
+    }
+    callback();
+  }, delayMs);
 }
 
 // 监听代码编辑器的输入事件，实时更新行号
@@ -506,6 +652,11 @@ btnConfirmConfig.addEventListener("click", confirmConfig);
 
 // 绑定重置配置按钮
 btnResetConfig.addEventListener("click", resetConfig);
+
+// 绑定定时执行复选框变化事件
+enableTimedExecutionCheckbox.addEventListener("change", function () {
+  toggleTimedDelayGroup(this.checked);
+});
 
 // 页面加载完成后初始化行号显示
 updateLineNumbers();
